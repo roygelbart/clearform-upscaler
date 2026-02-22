@@ -8,7 +8,7 @@ Default engine is now an AI upscaler (OpenCV FSRCNN x4), with Topaz kept as opti
 - Batch upload up to 200 JPEGs
 - Enforced minimum 4x upscale and minimum 20MB target size per output
 - Progress/status page with summary counts
-- Auto Telegram notification when a batch completes
+- Auto Telegram notification when a batch completes (direct Bot API preferred, OpenClaw fallback)
 - ZIP output with a `_report.tsv` file containing dimensions, quality, size, and notes
 - Preserves EXIF/ICC metadata where possible (orientation normalized)
 - AI upscaler engine (FSRCNN x4) for unattended batch runs
@@ -56,8 +56,9 @@ Environment variables (see `.env.example`):
 - `AI_MODEL_PATH` (optional local path for FSRCNN_x4.pb; auto-downloads if empty)
 - `TOPAZ_CLI_PATH` (path to Topaz CLI binary)
 - `NOTIFY_ON_DONE` (`true`/`false`)
-- `NOTIFY_CHANNEL` (default `telegram`)
-- `NOTIFY_TARGET` (your Telegram user id)
+- `TELEGRAM_BOT_TOKEN` (preferred direct notification path)
+- `TELEGRAM_CHAT_ID` (your Telegram user/chat id)
+- `NOTIFY_CHANNEL` + `NOTIFY_TARGET` (OpenClaw fallback path)
 
 ### Engine behavior
 - `UPSCALE_ADAPTER=ai` (default): uses FSRCNN x4 AI upscaling (fully automatable)

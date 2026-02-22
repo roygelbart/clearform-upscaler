@@ -53,6 +53,8 @@ class AppConfig:
     notify_on_done: bool
     notify_channel: str
     notify_target: str
+    telegram_bot_token: str
+    telegram_chat_id: str
     work_dir: str
     log_level: str
 
@@ -74,6 +76,8 @@ class AppConfig:
             notify_on_done=_env_bool("NOTIFY_ON_DONE", True),
             notify_channel=_env_str("NOTIFY_CHANNEL", "telegram"),
             notify_target=_env_str("NOTIFY_TARGET", "7532770885"),
+            telegram_bot_token=_env_str("TELEGRAM_BOT_TOKEN", ""),
+            telegram_chat_id=_env_str("TELEGRAM_CHAT_ID", ""),
             work_dir=_env_str("WORK_DIR", ""),
             log_level=_env_str("LOG_LEVEL", "INFO"),
         )

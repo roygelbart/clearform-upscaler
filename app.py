@@ -1,8 +1,11 @@
+import json
 import logging
 import os
 import subprocess
 import tempfile
 import threading
+import urllib.request
+import urllib.parse
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -62,9 +65,35 @@ def _unique_output_name(base: str, used: set[str]) -> str:
         counter += 1
 
 
+def _send_telegram_direct(message: str) -> bool:
+    token = config.telegram_bot_token.strip()
+    chat_id = config.telegram_chat_id.strip()
+    if not token or not chat_id:
+        return False
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = urllib.parse.urlencode({"chat_id": chat_id, "text": message}).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+            return bool(payload.get("ok"))
+    except Exception as exc:
+        logger.warning("Direct Telegram notification failed: %s", exc)
+        return False
+
+
 def _send_done_notification(message: str) -> None:
     if not config.notify_on_done:
         return
+
+    # Preferred path: direct Telegram API (works on any machine running app).
+    if _send_telegram_direct(message):
+        return
+
+    # Fallback path: OpenClaw CLI messaging.
     if not config.notify_target:
         logger.info("Notification skipped: NOTIFY_TARGET is empty.")
         return
@@ -87,7 +116,7 @@ def _send_done_notification(message: str) -> None:
             timeout=15,
         )
     except Exception as exc:
-        logger.warning("Notification send failed: %s", exc)
+        logger.warning("Fallback notification send failed: %s", exc)
 
 
 def _run_job(job_id: str, inputs: list[tuple[str, str]], scale: float, target_mb: float, work_dir: str) -> None:
