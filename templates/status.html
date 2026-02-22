@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Processing Status</title>
+    <style>
+      :root {
+        --bg: #f4f6fb;
+        --card: #fff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --line: #e7ebf3;
+        --accent: #4f46e5;
+        --accent-2: #0ea5e9;
+        --shadow: 0 14px 40px rgba(15, 23, 42, .08);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(900px 500px at -10% -20%, #dbeafe 0%, transparent 55%),
+          radial-gradient(800px 500px at 110% -10%, #e0f2fe 0%, transparent 55%),
+          var(--bg);
+        color: var(--text);
+        padding: 40px 16px;
+      }
+
+      .wrap { max-width: 980px; margin: 0 auto; }
+      h1 { margin: 0 0 14px; font-size: 34px; letter-spacing: -0.03em; font-weight: 760; }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 22px;
+      }
+
+      .top { display:flex; justify-content: space-between; align-items:center; gap:10px; }
+      .status-pill {
+        border-radius: 999px;
+        padding: 7px 11px;
+        border: 1px solid #dbe3ef;
+        background: #f8fbff;
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+      }
+
+      .hint { color: var(--muted); font-size: 13px; margin: 6px 0; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      .progress {
+        height: 12px;
+        background: #edf2fb;
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 14px 0;
+      }
+
+      .bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        transition: width .35s ease;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(110px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .stat {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fcfdff;
+        padding: 10px;
+      }
+
+      .k { text-transform: uppercase; color: var(--muted); letter-spacing: .06em; font-size: 11px; }
+      .v { font-size: 19px; font-weight: 750; margin-top: 2px; }
+
+      .actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+      .button {
+        text-decoration: none;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 700;
+      }
+
+      .button.primary {
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      }
+
+      .button.ghost {
+        color: #1e293b;
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+
+      @media (max-width: 760px) {
+        h1 { font-size: 29px; }
+        .stats { grid-template-columns: repeat(2, minmax(110px,1fr)); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Processing Status</h1>
+
+      <div class="card">
+        <div class="top">
+          <div id="statusText">Starting…</div>
+          <div class="status-pill" id="statusPill">QUEUED</div>
+        </div>
+
+        <p class="hint">Elapsed: <span id="elapsed" class="mono">00:00</span> · Remaining: <span id="remaining" class="mono">Calculating…</span></p>
+        <p class="hint">Estimated done (PST): <span id="doneAt" class="mono">Calculating…</span></p>
+        <div class="progress"><div class="bar" id="progressBar"></div></div>
+
+        <p class="hint" id="message"></p>
+        <p class="hint">Current file: <span id="currentItem" class="mono">-</span></p>
+
+        <div class="stats">
+          <div class="stat"><div class="k">Total</div><div class="v" id="total">0</div></div>
+          <div class="stat"><div class="k">Processed</div><div class="v" id="processed">0</div></div>
+          <div class="stat"><div class="k">Met 20MB</div><div class="v" id="succeeded">0</div></div>
+          <div class="stat"><div class="k">Upscaled, <20MB</div><div class="v" id="warnings">0</div></div>
+          <div class="stat"><div class="k">Hard Failures</div><div class="v" id="failed">0</div></div>
+          <div class="stat"><div class="k">Skipped</div><div class="v" id="skipped">0</div></div>
+        </div>
+
+        <div class="actions" id="download">
+          <a href="/" class="button ghost">Back</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const jobId = "{{ job_id }}";
+      const statusEl = document.getElementById("statusText");
+      const statusPill = document.getElementById("statusPill");
+      const progressEl = document.getElementById("progressBar");
+      const messageEl = document.getElementById("message");
+      const downloadEl = document.getElementById("download");
+      const currentItemEl = document.getElementById("currentItem");
+      const elapsedEl = document.getElementById("elapsed");
+      const remainingEl = document.getElementById("remaining");
+      const doneAtEl = document.getElementById("doneAt");
+      let startedAt = Date.now();
+      let autoDownloaded = false;
+
+      function formatElapsed(ms) {
+        const total = Math.max(0, Math.floor(ms / 1000));
+        const hr = Math.floor(total / 3600);
+        const min = Math.floor((total % 3600) / 60);
+        const sec = total % 60;
+        if (hr > 0) return `${String(hr).padStart(2, "0")}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+        return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+      }
+
+      function formatPST(tsMs) {
+        return new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/Los_Angeles",
+          hour: "numeric",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+          month: "short",
+          day: "numeric"
+        }).format(new Date(tsMs));
+      }
+
+      setInterval(() => {
+        elapsedEl.textContent = formatElapsed(Date.now() - startedAt);
+      }, 1000);
+
+      function update(data) {
+        if (data.created_at) {
+          startedAt = data.created_at * 1000;
+        }
+
+        const state = (data.status || "queued").toUpperCase();
+        statusEl.textContent = `${state} • ${data.progress || 0}%`;
+        statusPill.textContent = state;
+        document.getElementById("total").textContent = data.total;
+        document.getElementById("processed").textContent = data.processed;
+        document.getElementById("succeeded").textContent = data.succeeded;
+        document.getElementById("warnings").textContent = data.warnings || 0;
+        document.getElementById("failed").textContent = data.failed;
+        document.getElementById("skipped").textContent = data.skipped;
+        progressEl.style.width = `${data.progress}%`;
+        messageEl.textContent = data.message || "";
+        currentItemEl.textContent = data.current_item || "-";
+
+        const elapsedMs = Date.now() - startedAt;
+        elapsedEl.textContent = formatElapsed(elapsedMs);
+
+        if (data.status === "done") {
+          remainingEl.textContent = "00:00";
+          doneAtEl.textContent = formatPST(Date.now());
+        } else if (data.processed > 0 && data.total > data.processed) {
+          const avgMsPerFile = elapsedMs / data.processed;
+          const remainingFiles = data.total - data.processed;
+          const remainingMs = Math.max(0, Math.round(avgMsPerFile * remainingFiles));
+          remainingEl.textContent = formatElapsed(remainingMs);
+          doneAtEl.textContent = formatPST(Date.now() + remainingMs);
+        } else {
+          remainingEl.textContent = "Calculating…";
+          doneAtEl.textContent = "Calculating…";
+        }
+
+        if (data.status === "done" && data.download_url) {
+          downloadEl.innerHTML = `
+            <a class="button primary" href="${data.download_url}">Download ZIP</a>
+            <a class="button ghost" href="/">Start New Batch</a>
+          `;
+          if (!autoDownloaded) {
+            autoDownloaded = true;
+            window.location.href = data.download_url;
+          }
+        } else if (data.status === "failed") {
+          downloadEl.innerHTML = `<a class="button ghost" href="/">Try Again</a>`;
+        }
+      }
+
+      async function poll() {
+        try {
+          const res = await fetch(`/status/${jobId}`);
+          if (!res.ok) {
+            statusEl.textContent = "Job not found";
+            statusPill.textContent = "NOT FOUND";
+            return;
+          }
+          const data = await res.json();
+          update(data);
+          if (data.status !== "done" && data.status !== "failed") {
+            setTimeout(poll, 1200);
+          }
+        } catch {
+          statusEl.textContent = "Connection issue. Retrying...";
+          statusPill.textContent = "RETRYING";
+          setTimeout(poll, 1600);
+        }
+      }
+
+      poll();
+    </script>
+  </body>
+</html>
