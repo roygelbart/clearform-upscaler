@@ -121,6 +121,12 @@
         margin-top: 8px;
       }
 
+      .btn.secondary {
+        background: #ffffff;
+        color: #1e293b;
+        border: 1px solid var(--line);
+      }
+
       .btn[disabled] { opacity: 0.7; cursor: not-allowed; }
 
       @media (max-width: 760px) {
@@ -172,6 +178,9 @@
           </div>
 
           <button id="submitBtn" class="btn" type="submit">Process & Download ZIP</button>
+        </form>
+        <form action="/notify-test" method="post">
+          <button class="btn secondary" type="submit">Send Test Telegram Notification</button>
         </form>
       </div>
     </div>

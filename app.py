@@ -85,20 +85,20 @@ def _send_telegram_direct(message: str) -> bool:
         return False
 
 
-def _send_done_notification(message: str) -> None:
+def _send_done_notification(message: str) -> bool:
     if not config.notify_on_done:
-        return
+        return False
 
     # Preferred path: direct Telegram API (works on any machine running app).
     if _send_telegram_direct(message):
-        return
+        return True
 
     # Fallback path: OpenClaw CLI messaging.
     if not config.notify_target:
         logger.info("Notification skipped: NOTIFY_TARGET is empty.")
-        return
+        return False
     try:
-        subprocess.run(
+        result = subprocess.run(
             [
                 "openclaw",
                 "message",
@@ -115,8 +115,10 @@ def _send_done_notification(message: str) -> None:
             stderr=subprocess.DEVNULL,
             timeout=15,
         )
+        return result.returncode == 0
     except Exception as exc:
         logger.warning("Fallback notification send failed: %s", exc)
+        return False
 
 
 def _run_job(job_id: str, inputs: list[tuple[str, str]], scale: float, target_mb: float, work_dir: str) -> None:
@@ -234,6 +236,16 @@ def index():
         max_target=config.max_target_mb,
         max_files=config.max_files,
     )
+
+
+@app.route("/notify-test", methods=["POST"])
+def notify_test():
+    sent = _send_done_notification("🧪 Clearform Upscaler test notification: Telegram alerts are working.")
+    if sent:
+        flash("Test notification sent. Check Telegram.")
+    else:
+        flash("Test notification could not be sent. Check TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.")
+    return redirect(url_for("index"))
 
 
 @app.route("/process", methods=["POST"])
